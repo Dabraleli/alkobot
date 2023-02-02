@@ -3,14 +3,64 @@
 #include "tgbot/Bot.h"
 #include "tgbot/net/TgLongPoll.h"
 #include "Database.h"
+#include "FishachBot.h"
 #include <QDebug>
+#include <QMutexLocker>
+#include <QDir>
 
 using namespace TgBot;
 using namespace std;
 
+void customMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg) {
+    QByteArray localMsg = msg.toLocal8Bit();
+    auto datetime = QDateTime::currentDateTime();
+    QString date = datetime.toString("dd.MM.yy hh:mm:ss.zzz");
+
+    if (!QDir(qApp->applicationDirPath() + "/logs").exists())
+        QDir(qApp->applicationDirPath()).mkdir("logs");
+    QFile logfile(QString("logs/%1-%2-%3.txt").arg(datetime.date().year()).arg(datetime.date().month()).arg(
+            datetime.date().day()));
+    logfile.open(QIODevice::WriteOnly | QIODevice::Append);
+    QTextStream stream(&logfile);
+    stream.setCodec("UTF-8");
+    switch (type) {
+        case QtDebugMsg:
+            fprintf(stdout, "[%s] [%s@%u] [INFO] %s\n", date.toStdString().c_str(), context.function, context.line,
+                    localMsg.constData());
+            stream << "[" << date.toStdString().c_str() << "] [" << context.function << "@" << context.line << "] "
+                   << msg.toStdString().c_str() << endl;
+            break;
+        case QtInfoMsg:
+            fprintf(stdout, "[%s] [%s@%u] [INFO] %s\n", date.toStdString().c_str(), context.function, context.line,
+                    localMsg.constData());
+            stream << "[" << date.toStdString().c_str() << "] [" << context.function << "@" << context.line
+                   << "] [INFO] " << localMsg.constData() << endl;
+            break;
+        case QtWarningMsg:
+            fprintf(stdout, "[%s] [%s@%u] [WARNING] %s\n", date.toStdString().c_str(), context.function, context.line,
+                    localMsg.constData());
+            stream << "[" << date.toStdString().c_str() << "] [" << context.function << "@" << context.line
+                   << "] [WARNING] " << localMsg.constData() << endl;
+            break;
+        case QtCriticalMsg:
+            fprintf(stderr, "[%s] [%s@%u] [CRITICAL] %s\n", date.toStdString().c_str(), context.function, context.line,
+                    localMsg.constData());
+            stream << "[" << date.toStdString().c_str() << "] [" << context.function << "@" << context.line
+                   << "] [CRITICAL] " << localMsg.constData() << endl;
+            break;
+        case QtFatalMsg:
+            fprintf(stderr, "[%s] [%s@%u] [FATAL] %s\n", date.toStdString().c_str(), context.function, context.line,
+                    localMsg.constData());
+            stream << "[" << date.toStdString().c_str() << "] [" << context.function << "@" << context.line
+                   << "] [FATAL] " << localMsg.constData() << endl;
+            abort();
+    }
+    logfile.close();
+}
+
 int main(int argc, char *argv[]) {
-    Database db;
-    TgBot::Bot bot("ПОШЁЛ НАХУЙ");
+    /*Database db;
+    TgBot::Bot bot("5988228878:AAGhVYImhRw76gtRsi7vwIMVJBSqXBvratc");
 
     vector<BotCommand::Ptr> commands;
     BotCommand::Ptr cmdArray(new BotCommand);
@@ -39,119 +89,11 @@ int main(int argc, char *argv[]) {
 
     vector<BotCommand::Ptr> vectCmd;
     vectCmd = bot.getApi().getMyCommands();
-
-    for(std::vector<BotCommand::Ptr>::iterator it = vectCmd.begin(); it != vectCmd.end(); ++it) {
-        printf("cmd: %s -> %s\r\n",(*it)->command.c_str(),(*it)->description.c_str());
-    }
-
-    bot.getEvents().onAnyMessage([&bot, &db](TgBot::Message::Ptr message) {
-        if(!message->newChatMembers.empty()){
-            std::string fullString;
-            fullString = message->newChatMembers[0]->firstName;
-            if(!message->newChatMembers[0]->lastName.empty())
-                fullString += " " + message->newChatMembers[0]->lastName;
-            if(QString::fromStdString(message->newChatMembers[0]->username).contains("amstorx"))
-                bot.getApi().sendMessage(message->chat->id, "Мумжа уходи", true, message->messageId);
-            else
-                bot.getApi().sendMessage(message->chat->id, fullString + ", присаживайся к огоньку!\n"
-                                                                               "Не томи, пости своих чебаков, показывай снасти.\n"
-                                                                               "Подпишись на @fishach и послушай наши байки или трави свой #отчёт, чувствуй себя как дома.", true, message->messageId);
-        } else {
-            if(!message->text.empty()) {
-                QString qmessage = QString::fromStdString(message->text);
-                if (qmessage.startsWith("/beer_top")) {
-                    QString result = "";
-                    auto top = db.getBeerTop();
-                    int shift = 0;
-                    for (int i = 0; i < top.size(); i++) {
-                        shift = std::max(shift, top[i].first.length());
-                    }
-                    for (int i = 0; i < top.size(); i++) {
-                        result += top[i].first.leftJustified(shift) + " " + QString::number(top[i].second) + "\r\n";
-                    }
-                    if(result.isEmpty())
-                       bot.getApi().sendMessage(message->chat->id, "Алголиков нет, фишач пьёт иван-чай", true, message->messageId);
-                    else {
-                        MessageEntity::Ptr entity = make_shared<MessageEntity>();
-                        entity->offset = 0;
-                        entity->length = result.length();
-                        entity->type = TgBot::MessageEntity::Type::Code;
-                        std::vector<MessageEntity::Ptr> test;
-                        test.push_back(entity);
-                       bot.getApi().sendMessage(message->chat->id, result.toStdString(), true, message->messageId, nullptr, "", false, test);
-                    }
-                } else if (qmessage.startsWith("/beer")) {
-                    auto values = qmessage.split(" ");
-                    if (values.count() != 2) {
-                        bot.getApi().sendMessage(message->chat->id, "Напиши /beer <значение в литрах>", true,
-                                                 message->messageId);
-                        return;
-                    }
-                    QString value = values[1].replace(",", ".");
-                    if (value.toFloat() <= 0) {
-                        bot.getApi().sendMessage(message->chat->id, "Ты числа не умеешь вводить?", true,
-                                                 message->messageId);
-                        return;
-                    }
-                    float amount = value.toFloat();
-                    if(message->from->id == 692956963)
-                    {
-                        bot.getApi().sendMessage(message->chat->id, QString("От тебя не принимаю, заебал").toStdString(), true,
-                                                 message->messageId);
-                        return;
-                    }
-                    qDebug() << QString::fromStdString(message->from->username) << " " << message->from->id;
-                    if(amount > 10){
-                        auto top = db.getBeerTop();
-                        auto user = top[0].first;
-                        bot.getApi().sendMessage(message->chat->id, QString("Ну ты и врунишка, столько даже %1 не выпьет").arg(user).toStdString(), true,
-                                                 message->messageId);
-                    } else {
-                        db.addLitresToUser(QString::fromStdString(message->from->username), amount);
-                        bot.getApi().sendMessage(message->chat->id, "Брат, продолжай в таком же темпе", true,
-                                                 message->messageId);
-                    }
-                }
-                else if(qmessage.startsWith("/last_fishing")){
-                    QString result = "Сколько не рыбачили:\n";
-                    auto top = db.getLastFishings();
-                    auto currentTime = QDateTime::currentDateTime();
-                    int shift = 0;
-                    for (int i = 0; i < top.size(); i++) {
-                        shift = std::max(shift, top[i].first.length());
-                    }
-                    for (int i = 0; i < top.size(); i++) {
-                        result += top[i].first.leftJustified(shift) + " " + QString::number(abs(currentTime.daysTo(top[i].second))) + " дня(ей)" + "\r\n";
-                    }
-                    if(result.isEmpty())
-                        bot.getApi().sendMessage(message->chat->id, "Никто не рыбачит", true, message->messageId);
-                    else {
-                        MessageEntity::Ptr entity = make_shared<MessageEntity>();
-                        entity->offset = 0;
-                        entity->length = result.length();
-                        entity->type = TgBot::MessageEntity::Type::Code;
-                        std::vector<MessageEntity::Ptr> test;
-                        test.push_back(entity);
-                        bot.getApi().sendMessage(message->chat->id, result.toStdString(), true, message->messageId, nullptr, "", false, test);
-                    }
-                } else if(qmessage.startsWith("/fish")){
-                    db.updateFishing(QString::fromStdString(message->from->username), QDateTime::currentDateTime());
-                    bot.getApi().sendMessage(message->chat->id, "Брат, молодец. Ходи на рыбалку почаще", true,
-                                             message->messageId);
-                }
-            }
-        }
-    });
-    try {
-        printf("Bot username: %s\n", bot.getApi().getMe()->username.c_str());
-        bot.getApi().deleteWebhook();
-
-        TgBot::TgLongPoll longPoll(bot);
-        while (true) {
-            longPoll.start();
-        }
-    } catch (TgBot::TgException& e) {
-        printf("error: %s\n", e.what());
-    }
+     */
+    QCoreApplication app(argc, argv);
+    qInstallMessageHandler(customMessageOutput);
+    FishachBot bot("5988228878:AAGhVYImhRw76gtRsi7vwIMVJBSqXBvratc");
+    bot.readAdmins();
+    bot.startHandler();
     return 0;
 }

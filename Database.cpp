@@ -5,16 +5,16 @@
 #include <cmath>
 
 double fround(double val) {
-    return (double((int)::round( val * 100.0 ))) / 100.0;
+    return (double((int) ::round(val * 100.0))) / 100.0;
 }
 
 
-void Database::addLitresToUser(QString user, float amount) {
+void Database::addLitresToUser(qint64 user, float amount) {
     QSqlQuery selectQuery;
     selectQuery.prepare("SELECT * FROM beer WHERE user = :user;");
     selectQuery.bindValue(":user", user);
     selectQuery.exec();
-    if(selectQuery.next()){
+    if (selectQuery.next()) {
         float currentAmount = 0;
         currentAmount = selectQuery.value("amount").toFloat();
         QSqlQuery updateQuery;
@@ -32,57 +32,77 @@ void Database::addLitresToUser(QString user, float amount) {
 }
 
 Database::Database() {
-    QSqlDatabase sdb = QSqlDatabase::addDatabase("QSQLITE");
-    sdb.setDatabaseName("database.sqlite");
+    if (!QSqlDatabase::contains(QSqlDatabase::defaultConnection)) {
+        QSqlDatabase sdb = QSqlDatabase::addDatabase("QSQLITE");
+        sdb.setDatabaseName("database.sqlite");
 
-    if (!sdb.open()) {
-        qDebug() << "Database not open";
+        if (!sdb.open()) {
+            qDebug() << "Database not open";
+        }
     }
-
 }
 
-std::vector<std::pair<QString, float>> Database::getBeerTop() {
+std::vector<std::pair<qint64, float>> Database::getBeerTop() {
     QSqlQuery selectQuery;
     selectQuery.prepare("SELECT user, amount FROM beer ORDER BY amount DESC;");
     selectQuery.exec();
-    std::vector<std::pair<QString, float>> result;
-    while(selectQuery.next()){
+    std::vector<std::pair<qint64, float>> result;
+    while (selectQuery.next()) {
         float amount = selectQuery.value("amount").toDouble();
-        QString user = selectQuery.value("user").toString();
+        qint64 user = selectQuery.value("user").toLongLong();
         result.push_back(std::make_pair(user, amount));
     }
     return result;
 }
 
-void Database::updateFishing(QString user, QDateTime lastFishing) {
+void Database::updateFishing(qint64 user, QDateTime lastFishing, bool success) {
     QSqlQuery selectQuery;
-    selectQuery.prepare("SELECT * FROM fishing WHERE user = :user;");
+    selectQuery.prepare("SELECT date, user, success, total FROM fishing WHERE user = :user;");
     selectQuery.bindValue(":user", user);
     selectQuery.exec();
-    if(selectQuery.next()){
+    if (selectQuery.next()) {
         QSqlQuery updateQuery;
-        updateQuery.prepare("UPDATE fishing SET date = :date WHERE user = :user;");
+        updateQuery.prepare("UPDATE fishing SET date = :date, total = :total, success = :success WHERE user = :user;");
         updateQuery.bindValue(":date", lastFishing.toSecsSinceEpoch());
         updateQuery.bindValue(":user", user);
+        updateQuery.bindValue(":total", selectQuery.value("total").toInt() + 1);
+        updateQuery.bindValue(":success", success ? selectQuery.value("success").toInt() + 1 : selectQuery.value(
+                "success").toInt());
         updateQuery.exec();
     } else {
         QSqlQuery insertQuery;
-        insertQuery.prepare("INSERT INTO fishing (user, date) VALUES (:user, :date);");
+        insertQuery.prepare(
+                "INSERT INTO fishing (user, date, total, success) VALUES (:user, :date, :total, :success);");
         insertQuery.bindValue(":user", user);
         insertQuery.bindValue(":date", lastFishing.toSecsSinceEpoch());
+        insertQuery.bindValue(":success", success ? 1 : 0);
+        insertQuery.bindValue(":total", 1);
         insertQuery.exec();
     }
 }
 
-std::vector<std::pair<QString, QDateTime>> Database::getLastFishings() {
+std::vector<LastFishing> Database::getLastFishings() {
     QSqlQuery selectQuery;
-    selectQuery.prepare("SELECT user, date FROM fishing ORDER BY date DESC;");
+    selectQuery.prepare("SELECT user, date, total, success FROM fishing ORDER BY date DESC;");
     selectQuery.exec();
-    std::vector<std::pair<QString, QDateTime>> result;
-    while(selectQuery.next()){
-        QDateTime date = QDateTime::fromSecsSinceEpoch(selectQuery.value("date").toInt());
-        QString user = selectQuery.value("user").toString();
-        result.push_back(std::make_pair(user, date));
+    std::vector<LastFishing> result;
+    while (selectQuery.next()) {
+        LastFishing last;
+        last.lastFishing = QDateTime::fromSecsSinceEpoch(selectQuery.value("date").toInt());
+        last.user = selectQuery.value("user").toLongLong();
+        last.total = selectQuery.value("total").toInt();
+        last.success = selectQuery.value("success").toInt();
+        result.push_back(last);
     }
     return result;
+}
+
+QDateTime Database::getLastPersonFishing(qint64 user) {
+    QSqlQuery selectQuery;
+    selectQuery.prepare("SELECT date, user FROM fishing WHERE user = :user;");
+    selectQuery.bindValue(":user", user);
+    selectQuery.exec();
+    if (selectQuery.next())
+        return QDateTime::fromSecsSinceEpoch(selectQuery.value("date").toLongLong());
+    else return QDateTime(QDate(2000, 01, 01), QTime(0, 0, 0, 0));
 }

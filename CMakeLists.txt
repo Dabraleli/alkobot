@@ -14,7 +14,7 @@ find_package(Qt5 COMPONENTS
 
 add_subdirectory(tgbot-cpp)
 
-add_executable(alkobot main.cpp Database.cpp Database.h)
+add_executable(alkobot main.cpp Database.cpp Database.h FishachBot.cpp FishachBot.h api/Fish/Fish.cpp api/Fish/Fish.h api/Beer/Beer.cpp api/Beer/Beer.h utils/Utils.cpp utils/Utils.h)
 target_link_libraries(alkobot
         Qt5::Core
         Qt5::Sql

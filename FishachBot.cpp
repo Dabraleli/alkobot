@@ -7,17 +7,25 @@
 #include <QJsonDocument>
 #include <QDebug>
 #include <QJsonObject>
+#include "api/Ban/Ban.h"
 
 QHash<QString, CustomCommand> FishachBot::m_handlers = {
         {"/fish", {&API::Fish::fish}},
         {"/fish_top", {&API::Fish::last_fishing}},
+        {"/last_fishing", {&API::Fish::last_fishing}},
+        {"/set_fish", {&API::Fish::set_fish, true}},
         {"/beer", {&API::Beer::beer}},
         {"/beer_set", {&API::Beer::set, true}},
-        {"/beer_top", {&API::Beer::beer_top}}
+        {"/beer_top", {&API::Beer::beer_top}},
+        {"/k_ban", {&API::Ban::ban, true}},
+        {"/k_pardon", {&API::Ban::pardon, true}}
 };
 
 void FishachBot::handleMessage(TgBot::Message::Ptr message) {
     QString messageText = QString::fromStdString(message->text);
+    if (message->forwardFrom != nullptr) {
+        return;
+    }
     if (messageText.startsWith("/")) {
         QStringList messageParts = messageText.split(" ");
         QString botCommand = messageParts[0].split("@")[0];
@@ -71,12 +79,23 @@ FishachBot::FishachBot(std::string apiKey)
         : m_bot(apiKey) {
     m_bot.getEvents().onAnyMessage([&](TgBot::Message::Ptr message) {
         if (!message->newChatMembers.empty())
-            handleJoinMessage(message->newChatMembers);
+            handleJoinMessage(message);
         else handleMessage(message);
     });
 }
 
-void FishachBot::handleJoinMessage(std::vector<TgBot::User::Ptr> &newMembers) {
+void FishachBot::handleJoinMessage(TgBot::Message::Ptr message) {
+    std::string fullString;
+    fullString = message->newChatMembers[0]->firstName;
+    if(!message->newChatMembers[0]->lastName.empty())
+        fullString += " " + message->newChatMembers[0]->lastName;
+    qDebug() << "New member " << QString::fromStdString(message->newChatMembers[0]->username);
+    if(QString::fromStdString(message->newChatMembers[0]->username).contains("amstorx"))
+        m_bot.getApi().sendMessage(message->chat->id, "Мумжа уходи", true, message->messageId);
+    else
+        m_bot.getApi().sendMessage(message->chat->id, fullString + ", присаживайся к огоньку!\n"
+                                                                 "Не томи, пости своих чебаков, показывай снасти.\n"
+                                                                 "Подпишись на @fishach и послушай наши байки или трави свой #отчёт, чувствуй себя как дома.", true, message->messageId);
 
 }
 

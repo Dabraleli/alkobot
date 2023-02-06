@@ -8,6 +8,7 @@ namespace API {
     public:
         static void fish(TgBot::Bot*, TgBot::Message::Ptr);
         static void last_fishing(TgBot::Bot*, TgBot::Message::Ptr);
+        static void set_fish(TgBot::Bot*, TgBot::Message::Ptr);
     };
 }
 

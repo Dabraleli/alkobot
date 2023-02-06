@@ -35,7 +35,7 @@ public:
 private:
     void handleMessage(TgBot::Message::Ptr message);
 
-    void handleJoinMessage(std::vector<TgBot::User::Ptr> &newMembers);
+    void handleJoinMessage(TgBot::Message::Ptr message);
 
     static QHash<QString, CustomCommand> m_handlers;
     QList<int64_t> m_admins;

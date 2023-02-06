@@ -67,3 +67,17 @@ void API::Fish::last_fishing(TgBot::Bot * bot, TgBot::Message::Ptr message) {
         bot->getApi().sendMessage(message->chat->id, result.toStdString(), true, message->messageId, nullptr, "", false, test);
     }
 }
+
+void API::Fish::set_fish(TgBot::Bot * bot, TgBot::Message::Ptr message) {
+    Database db;
+    QString textMessage = QString::fromStdString(message->text);
+    auto arguments = textMessage.split(" ");
+    if(arguments.count() == 4) {
+        qint64 user = arguments[1].toLongLong();
+        int total = arguments[2].toInt();
+        int success = arguments[3].toInt();
+        db.setFishing(user, total, success);
+        bot->getApi().sendMessage(message->chat->id, "Готово", true, message->messageId);
+    } else
+        bot->getApi().sendMessage(message->chat->id, "Накосячил с форматом", true, message->messageId);
+}

@@ -8,6 +8,22 @@ double fround(double val) {
     return (double((int) ::round(val * 100.0))) / 100.0;
 }
 
+void Database::setLitresToUser(qint64 user, float amount) {
+    QSqlQuery selectQuery;
+    selectQuery.prepare("SELECT * FROM beer WHERE user = :user;");
+    selectQuery.bindValue(":user", user);
+    selectQuery.exec();
+    if (selectQuery.next()) {
+        float currentAmount = 0;
+        currentAmount = selectQuery.value("amount").toFloat();
+        QSqlQuery updateQuery;
+        updateQuery.prepare("UPDATE beer SET amount = :amount, lastbeer = 2, lastdate = :lastdate WHERE user = :user;");
+        updateQuery.bindValue(":amount", fround(amount));
+        updateQuery.bindValue(":user", user);
+        updateQuery.bindValue(":lastdate", QDateTime::currentDateTime().toSecsSinceEpoch());
+        updateQuery.exec();
+    }
+}
 
 void Database::addLitresToUser(qint64 user, float amount) {
     QSqlQuery selectQuery;
@@ -18,15 +34,19 @@ void Database::addLitresToUser(qint64 user, float amount) {
         float currentAmount = 0;
         currentAmount = selectQuery.value("amount").toFloat();
         QSqlQuery updateQuery;
-        updateQuery.prepare("UPDATE beer SET amount = :amount WHERE user = :user;");
+        updateQuery.prepare("UPDATE beer SET amount = :amount, lastbeer = :lastbeer, lastdate = :lastdate  WHERE user = :user;");
         updateQuery.bindValue(":amount", fround(amount + currentAmount));
         updateQuery.bindValue(":user", user);
+        updateQuery.bindValue(":lastbeer", amount);
+        updateQuery.bindValue(":lastdate", QDateTime::currentDateTime().toSecsSinceEpoch());
         updateQuery.exec();
     } else {
         QSqlQuery insertQuery;
-        insertQuery.prepare("INSERT INTO beer (user, amount) VALUES (:user, :amount);");
+        insertQuery.prepare("INSERT INTO beer (user, amount, lastbeer, lastdate) VALUES (:user, :amount, :lastbeer, :lastdate);");
         insertQuery.bindValue(":user", user);
         insertQuery.bindValue(":amount", fround(amount));
+        insertQuery.bindValue(":lastbeer", amount);
+        insertQuery.bindValue(":lastdate", QDateTime::currentDateTime().toSecsSinceEpoch());
         insertQuery.exec();
     }
 }
@@ -105,4 +125,59 @@ QDateTime Database::getLastPersonFishing(qint64 user) {
     if (selectQuery.next())
         return QDateTime::fromSecsSinceEpoch(selectQuery.value("date").toLongLong());
     else return QDateTime(QDate(2000, 01, 01), QTime(0, 0, 0, 0));
+}
+
+void Database::setFishing(qint64 user, int total, int success) {
+    QSqlQuery selectQuery;
+    selectQuery.prepare("SELECT date, user, success, total FROM fishing WHERE user = :user;");
+    selectQuery.bindValue(":user", user);
+    selectQuery.exec();
+    if (selectQuery.next()) {
+        QSqlQuery updateQuery;
+        updateQuery.prepare("UPDATE fishing SET total = :total, success = :success WHERE user = :user;");
+        updateQuery.bindValue(":user", user);
+        updateQuery.bindValue(":total", total);
+        updateQuery.bindValue(":success", success);
+        updateQuery.exec();
+    }
+}
+
+bool Database::isUserBanned(qint64 user, QString prefix) {
+    QSqlQuery selectQuery;
+    selectQuery.prepare("SELECT user, prefix FROM bans WHERE user = :user AND prefix = :prefix;");
+    selectQuery.bindValue(":user", user);
+    selectQuery.bindValue(":prefix", prefix);
+    selectQuery.exec();
+    return selectQuery.next();
+}
+
+void Database::banUser(qint64 user, QString prefix) {
+    QSqlQuery insertQuery;
+    insertQuery.prepare("INSERT INTO bans (user, prefix) VALUES (:user, :prefix);");
+    insertQuery.bindValue(":user", user);
+    insertQuery.bindValue(":prefix", prefix);
+    insertQuery.exec();
+}
+
+void Database::pardonUser(qint64 user, QString prefix) {
+    QSqlQuery deleteQuery;
+    deleteQuery.prepare("DELETE FROM bans WHERE user = :user AND prefix = :prefix;");
+    deleteQuery.bindValue(":user", user);
+    deleteQuery.bindValue(":prefix", prefix);
+    deleteQuery.exec();
+}
+
+bool Database::canDrinkBeer(qint64 user, float multipler, int interval) {
+    QSqlQuery selectQuery;
+    selectQuery.prepare("SELECT lastbeer, lastdate FROM beer WHERE user = :user;");
+    selectQuery.bindValue(":user", user);
+    selectQuery.exec();
+    if(selectQuery.next()){
+        auto lastbeer = selectQuery.value("lastbeer").toFloat();
+        QDateTime lastdate = QDateTime::fromSecsSinceEpoch(selectQuery.value("lastdate").toInt());
+        int secsShouldHappen = (lastbeer / multipler) * interval;
+        if(abs(lastdate.secsTo(QDateTime::currentDateTime())) > secsShouldHappen)
+            return true;
+        return false;
+    } else return true;
 }

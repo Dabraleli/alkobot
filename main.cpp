@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
      */
     QCoreApplication app(argc, argv);
     qInstallMessageHandler(customMessageOutput);
-    FishachBot bot("5988228878:AAGhVYImhRw76gtRsi7vwIMVJBSqXBvratc");
+    FishachBot bot("");
     bot.readAdmins();
     bot.startHandler();
     return 0;

@@ -7,6 +7,8 @@
 #include <QDebug>
 #include <QMutexLocker>
 #include <QDir>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 using namespace TgBot;
 using namespace std;
@@ -92,8 +94,19 @@ int main(int argc, char *argv[]) {
      */
     QCoreApplication app(argc, argv);
     qInstallMessageHandler(customMessageOutput);
-    FishachBot bot("");
+
+    QFile adminFile(qApp->applicationDirPath() + "/config.json");
+    adminFile.open(QIODevice::ReadOnly);
+    QJsonObject config = QJsonDocument::fromJson(adminFile.readAll()).object();
+    QString apiKey = config["bot_key"].toString();
+    adminFile.close();
+    if(apiKey.isEmpty()){
+        qFatal("%s", "No api key found");
+    }
+
+    FishachBot bot(apiKey);
     bot.readAdmins();
+    bot.readRestrictedChats();
     bot.startHandler();
     return 0;
 }

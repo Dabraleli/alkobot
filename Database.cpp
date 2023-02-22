@@ -181,3 +181,13 @@ bool Database::canDrinkBeer(qint64 user, float multipler, int interval) {
         return false;
     } else return true;
 }
+
+float Database::getUserLitres(qint64 user) {
+    QSqlQuery selectQuery;
+    selectQuery.prepare("SELECT amount FROM beer WHERE user = :user;");
+    selectQuery.bindValue(":user", user);
+    selectQuery.exec();
+    if(selectQuery.next())
+        return selectQuery.value("amount").toFloat();
+    return 0;
+}

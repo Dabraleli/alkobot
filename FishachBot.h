@@ -9,26 +9,31 @@ struct CustomCommand {
 public:
     CustomCommand() = default;
 
-    CustomCommand(std::function<void(TgBot::Bot *, TgBot::Message::Ptr)> handler, bool isAdminCommand = false) {
+    CustomCommand(std::function<void(TgBot::Bot *, TgBot::Message::Ptr)> handler, bool chatRestricted = true, bool isAdminCommand = false) {
         this->commandHandler = handler;
         this->isAdmin = isAdminCommand;
+        this->chatRestricted = chatRestricted;
     }
 
     CustomCommand(const CustomCommand &other) {
         this->commandHandler = other.commandHandler;
         this->isAdmin = other.isAdmin;
+        this->chatRestricted = other.chatRestricted;
     }
 
     std::function<void(TgBot::Bot *, TgBot::Message::Ptr)> commandHandler;
     bool isAdmin;
+    bool chatRestricted;
 };
 
 class FishachBot : public QObject {
 Q_OBJECT
 public:
-    FishachBot(std::string apiKey);
+    FishachBot(QString apiKey);
 
     void readAdmins();
+
+    void readRestrictedChats();
 
     void startHandler();
 
@@ -39,6 +44,7 @@ private:
 
     static QHash<QString, CustomCommand> m_handlers;
     QList<int64_t> m_admins;
+    QList<int64_t> m_restrictedChats;
     TgBot::Bot m_bot;
 };
 

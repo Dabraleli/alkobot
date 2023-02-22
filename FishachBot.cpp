@@ -10,15 +10,15 @@
 #include "api/Ban/Ban.h"
 
 QHash<QString, CustomCommand> FishachBot::m_handlers = {
-        {"/fish", {&API::Fish::fish}},
-        {"/fish_top", {&API::Fish::last_fishing}},
-        {"/last_fishing", {&API::Fish::last_fishing}},
-        {"/set_fish", {&API::Fish::set_fish, true}},
-        {"/beer", {&API::Beer::beer}},
-        {"/beer_set", {&API::Beer::set, true}},
-        {"/beer_top", {&API::Beer::beer_top}},
-        {"/k_ban", {&API::Ban::ban, true}},
-        {"/k_pardon", {&API::Ban::pardon, true}}
+        {"/fish",         {&API::Fish::fish,         true}},
+        {"/fish_top",     {&API::Fish::last_fishing, true}},
+        {"/last_fishing", {&API::Fish::last_fishing, true}},
+        {"/set_fish",     {&API::Fish::set_fish,     false,  true}},
+        {"/beer",         {&API::Beer::beer,         true}},
+        {"/beer_set",     {&API::Beer::set,          false,  true}},
+        {"/beer_top",     {&API::Beer::beer_top,     true}},
+        {"/k_ban",        {&API::Ban::ban,           false, true}},
+        {"/k_pardon",     {&API::Ban::pardon,        false, true}}
 };
 
 void FishachBot::handleMessage(TgBot::Message::Ptr message) {
@@ -42,6 +42,18 @@ void FishachBot::handleMessage(TgBot::Message::Ptr message) {
                             false,
                             message->messageId
                     );
+                    return;
+                }
+            }
+            if (command.chatRestricted){
+                if(!m_restrictedChats.contains(message->chat->id)){
+                    m_bot.getApi().sendMessage(
+                            message->chat->id,
+                            "Эту команду можно ввести только в /fi",
+                            false,
+                            message->messageId
+                    );
+                    qDebug() << "Command received from wrong chat " << message->chat->id;
                     return;
                 }
             }
@@ -75,8 +87,8 @@ void FishachBot::startHandler() {
     }
 }
 
-FishachBot::FishachBot(std::string apiKey)
-        : m_bot(apiKey) {
+FishachBot::FishachBot(QString apiKey)
+        : m_bot(apiKey.toStdString()) {
     m_bot.getEvents().onAnyMessage([&](TgBot::Message::Ptr message) {
         if (!message->newChatMembers.empty())
             handleJoinMessage(message);
@@ -96,6 +108,17 @@ void FishachBot::handleJoinMessage(TgBot::Message::Ptr message) {
         m_bot.getApi().sendMessage(message->chat->id, fullString + ", присаживайся к огоньку!\n"
                                                                  "Не томи, пости своих чебаков, показывай снасти.\n"
                                                                  "Подпишись на @fishach и послушай наши байки или трави свой #отчёт, чувствуй себя как дома.", true, message->messageId);
+    //m_bot.getApi().sendMessage(message->chat->id, "[спаилился](tg://user?id=5469954622)", true, 0, nullptr, "Markdown", true);
 
+}
+
+void FishachBot::readRestrictedChats() {
+    QFile configFile(qApp->applicationDirPath() + "/config.json");
+    configFile.open(QIODevice::ReadOnly);
+    QJsonObject config = QJsonDocument::fromJson(configFile.readAll()).object();
+    QJsonArray chats = config["restricted_chats"].toArray();
+    configFile.close();
+    for (auto v: chats)
+        m_restrictedChats << v.toString().toLongLong();
 }
 

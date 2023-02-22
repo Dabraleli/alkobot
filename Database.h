@@ -39,6 +39,8 @@ public:
     void banUser(qint64 user, QString prefix);
 
     void pardonUser(qint64 user, QString prefix);
+
+    float getUserLitres(qint64 user);
 };
 
 

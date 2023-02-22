@@ -73,8 +73,8 @@ void API::Beer::beer_top(TgBot::Bot * bot, TgBot::Message::Ptr message) {
     for (int i = 0; i < usersInTop.size(); i++) {
         shift = std::max(shift, usersInTop[i].first.length());
     }
-    for (int i = 0; i < top.size(); i++) {
-        result += usersInTop[i].first.leftJustified(shift) + " " + QString::number(top[i].second) + "\r\n";
+    for (int i = 0; i < usersInTop.size(); i++) {
+        result += usersInTop[i].first.leftJustified(shift) + " " + QString::number(usersInTop[i].second) + "\r\n";
     }
     if(result.isEmpty())
         bot->getApi().sendMessage(message->chat->id, "Алголиков нет, фишач пьёт иван-чай", true, message->messageId);
@@ -97,7 +97,10 @@ void API::Beer::set(TgBot::Bot * bot, TgBot::Message::Ptr message) {
         float amount = arguments[2].toFloat();
         Database db;
         db.setLitresToUser(user, amount);
-        bot->getApi().sendMessage(message->chat->id, "Довыебывался", true, message->messageId);
+        auto previousLitres = db.getUserLitres(user);
+        if(previousLitres >= amount)
+            bot->getApi().sendMessage(message->chat->id, "Довыебывался", true, message->messageId);
+        else bot->getApi().sendMessage(message->chat->id, "Поправил", true, message->messageId);
     } else
         bot->getApi().sendMessage(message->chat->id, "Накосячил с форматом", true, message->messageId);
 }
